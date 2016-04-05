@@ -90,8 +90,13 @@ def call_base(pileup_info, sampling_method):
         # take all bases with the highest count
         max_freq = max(c[1] for c in counts)
         bases = [c[0] for c in counts if c[1] == max_freq]
-
-    return random.choice(bases)
+        # if there is more than one "best" choice, return nothing
+        if len(bases) > 1:
+            return None
+        else: # return the majority allele
+            return bases[0]
+    elif sampling_method == 'random':
+        return random.choice(bases)
 
 
 def bases_in_column(column, ref_base):
@@ -148,8 +153,9 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
             # if there is any base in the pileup left, call one allele
             if len(pileup_bases) > 0:
                 called_base = call_base(pileup_bases, sampling_method)
-                print_fn(col.reference_name, col.pos + 1, ref_base,
-                         called_base)
+                if called_base:
+                    print_fn(col.reference_name, col.pos + 1, ref_base,
+                             called_base)
 
 
 def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
