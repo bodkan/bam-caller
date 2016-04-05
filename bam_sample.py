@@ -95,6 +95,8 @@ def call_base(pileup_info, sampling_method):
             return None
         else: # return the majority allele
             return bases[0]
+    elif sampling_method == 'consensus':
+        return bases[0] if len(set(bases)) == 1 else None
     elif sampling_method == 'random':
         return random.choice(bases)
 
@@ -200,7 +202,8 @@ def main(argv=None):
                         choices=['VCF', 'BED'], required=True)
     parser.add_argument('--sample-name', help='Sample name to put in VCF')
     parser.add_argument('--method', help='How to sample alleles?',
-                        choices=['majority', 'random'], required=True)
+                        choices=['majority', 'consensus', 'random'],
+                        required=True)
     parser.add_argument('--strand-check', help='How and where to check for '
                         'damage? If not specified, no checks are performed.',
                         choices=['USER', 'USER_term5', 'non-USER_term3',
