@@ -66,14 +66,19 @@ def damage_at_site(pileup_info, strand_check=None):
     return False
 
  
-def filter_bases(pileup_column, strand_check, minbq):
+def filter_damage(pileup_column, strand_check):
     '''Filter out bases in a given pileup column that are likely result
-    of DNA damage (C->T on forward strand, G->A on reverse strand) as
-    well as bases bellow a certain base quality cut-off.
+    of DNA damage (C->T on forward strand, G->A on reverse strand)    '''
+    return [pileup_info for pileup_info in pileup_column
+                        if not damage_at_site(pileup_info, strand_check)]
+
+
+def filter_bqual(pileup_column, minbq):
+    '''Filter out bases in a given pileup column that are bellow a given
+    base quality cut-off.
     '''
     return [pileup_info for pileup_info in pileup_column
-                        if not damage_at_site(pileup_info, strand_check) \
-                            and minbq <= pileup_info[5]]
+                        if minbq <= pileup_info[5]]
 
 
 def call_base(pileup_info, sampling_method):
@@ -133,11 +138,12 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
 
             pileup_bases = bases_in_column(col, ref_base)
 
-            # skip the position if it does not pass coverage filter
+            # filter out this position if it does not pass the coverage filter
             if not (mincov <= len(pileup_bases) <= maxcov): continue
-
             # filter out low qual bases or those that are most likely damage
-            pileup_bases = filter_bases(pileup_bases, strand_check, minbq)
+            if strand_check: pileup_bases = filter_damage(pileup_bases, strand_check)
+            # filter out low quality bases
+            if minbq > 0: pileup_bases = filter_bqual(pileup_bases, minbq)
 
             # if there is any base in the pileup left, call one allele
             if len(pileup_bases) > 0:
