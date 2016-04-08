@@ -157,7 +157,7 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
                 called_base = call_base(pileup_bases, sampling_method)
                 if called_base:
                     print_fn(col.reference_name, col.pos + 1, ref_base,
-                             called_base)
+                             called_base, len(pileup_bases))
 
 
 def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
@@ -175,15 +175,16 @@ def print_vcf_header(sample_name, handle):
     '''Print VCF header.'''
     print('##fileformat=VCFv4.1\n'
           '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+          '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">\n'
           '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}'.
           format(sample=sample_name), file=handle)
 
 
-def print_record(chrom, pos, ref, called, rec_fmt, handle):
+def print_record(chrom, pos, ref, called, length, rec_fmt, handle):
     '''Print information about sampled site in a given string format.'''
     alt, gt = ('.', 0) if ref == called else (called, 1)
     print(rec_fmt.format(chrom=chrom, start=pos - 1, end=pos, pos=pos,
-          ref=ref, allele=called, alt=alt, gt=gt))
+          ref=ref, allele=called, alt=alt, gt=gt, dp=length))
 
 
 def main(argv=None):
@@ -231,7 +232,7 @@ def main(argv=None):
 
     if args.format == 'VCF':
         print_vcf_header(args.sample_name, handle)
-        rec_fmt = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
+        rec_fmt = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT:DP\t{gt}:{dp}'
     else:
         rec_fmt = '{chrom}\t{start}\t{end}\t{ref}\t{allele}'
 
