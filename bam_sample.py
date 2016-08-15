@@ -58,8 +58,8 @@ def damage_at_site(pileup_info, strand_check=None):
 
     # if there is a C->T (on forward strand) or G->A (on reverse strand)
     # substitution at this site...
-    if ((ref_base == 'C' and read_base == 'T' and not reverse_strand) or \
-        (ref_base == 'G' and read_base == 'A' and     reverse_strand)):
+    if ((read_base == 'T' and not reverse_strand) or \
+        (read_base == 'A' and     reverse_strand)):
         # ... check if it occured on a position likely to carry aDNA damage
         return check_position(pos_in_read, read_len, reverse_strand,
                               strand_check)
