@@ -225,6 +225,10 @@ def main(argv=None):
         parser.error('Sample has to be specified when outputting to VCF')
 
     bam = pysam.AlignmentFile(args.bam)
+    if not bam.has_index():
+        print("BAM file does not seem to index. An index is required for sampling.",
+              file=sys.stderr)
+        sys.exit(1)
     ref = pysam.FastaFile(args.ref)
 
     # output the results as specified by user
