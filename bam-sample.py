@@ -184,7 +184,7 @@ def print_record(chrom, pos, ref, called, length, rec_fmt, handle):
     '''Print information about sampled site in a given string format.'''
     alt, gt = ('.', 0) if ref == called else (called, 1)
     print(rec_fmt.format(chrom=chrom, start=pos - 1, end=pos, pos=pos,
-          ref=ref, allele=called, alt=alt, gt=gt, dp=length))
+          ref=ref, allele=called, alt=alt, gt=gt, dp=length), file=handle)
 
 
 def main(argv=None):
