@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import functools
 import math
 import random
 import re
 import signal
 import subprocess
 import sys
-from itertools import chain
 
 import pysam
 import pandas as pd
