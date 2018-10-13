@@ -71,7 +71,7 @@ def count_mismatches(bam, len_limit=20):
         else:
             n_fwd_reads += 1
         
-        if i % 100000 == 0: print(f"{i} reads processed", end="\r"); break
+        if i % 100000 == 0: print(f"{i} reads processed", end="\r")
     
     print(f"\nTotal number of forward reads: {n_fwd_reads}")
     print(f"Total number of reverse reads: {n_rev_reads}")
