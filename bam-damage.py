@@ -90,8 +90,8 @@ if __name__ == "__main__":
     parser.add_argument("--bam", help="Path to a BAM file", required=True)
     parser.add_argument("--len_limit", help="How far into each read to look for damage?", type=int, default=20)
     parser.add_argument("--all-mismatches", help="Report all mismatches?", action="store_true")
-    parser.add_argument("--figure", help="Path to the output figure")
-    parser.add_argument("--dpi", help="Path to the output figure", type=int, default=300)
+    parser.add_argument("--figure", help="Path to an output figure (suffix determines format - png, svg, etc.)")
+    parser.add_argument("--dpi", help="DPI of an output figure", type=int, default=300)
     parser.add_argument("--table", help="Path to the output figure")
     args = parser.parse_args()
 
