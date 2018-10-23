@@ -14,38 +14,20 @@ import pandas as pd
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def regions(bed_path):
-    """Iterator over a BED file."""
-    if not bed_path: # will iterate over the whole BAM if BED not specified
-        yield None, None, None
-    else:
-        with open(bed_path, "r") as f:
-            for line in f:
-                chrom, start, end, *_ = line.split()
-                yield chrom, int(start), int(end)
-
-
-def pileup(bam, ref, bed):
+def pileup(bam, ref):
     """Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     pileups = []
-    for chrom, start, end in bed:
-        for col in bam.pileup(chrom, start, end):
-            # check first if the current column lies within this region (pysam
-            # pileup returns whole reads overlapping a queried region, not
-            # just bases in this region)
-            if chrom and start and end and not (chrom == col.reference_name and start <= col.pos < end):
-                continue
-            else:
-                bases = [b.upper() for b in col.get_query_sequences() if b.upper() in "ACGT"]
-                if bases:
-                    pileups.append((
-                        col.reference_name,
-                        col.reference_pos + 1,
-                        ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
-                        bases
-                    ))
+    for col in bam.pileup():
+        bases = [b.upper() for b in col.get_query_sequences() if b.upper() in "ACGT"]
+        if bases:
+            pileups.append((
+                col.reference_name,
+                col.reference_pos + 1,
+                ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
+                bases
+            ))
     return pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"])
 
 
@@ -80,7 +62,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
-    parser.add_argument("--bed", help="BED file with coordinates of regions/sites to sample")
     parser.add_argument("--output", help="Output filename or EIGENSTRAT prefix", required=True)
     parser.add_argument("--format", help="Output format", choices=["VCF", "EIGENSTRAT", "pileup"], required=True)
     parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT", required=True)
@@ -92,13 +73,12 @@ if __name__ == "__main__":
 
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
-    bed = regions(args.bed)
 
     if not bam.has_index():
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
 
-    pileups = pileup(bam, ref, bed)
+    pileups = pileup(bam, ref)
     pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
 
     if args.format == "VCF":
