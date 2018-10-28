@@ -42,11 +42,12 @@ def write_vcf(output, sites, sample_name):
             format(sample=sample_name), file=vcf
         )
         for i in sites.itertuples():
-            print(f"{i.chrom}\t{i.pos}\t.\t{i.ref}\t{i.base}\t.\t.\t.\tGT\t{int(i.ref != i.base)}", file=vcf)
+            alt, gt = ".", 0 if i.ref == i.base else i.base, 1
+            print(f"{i.chrom}\t{i.pos}\t.\t{i.ref}\t{alt}\t.\t.\t.\tGT\t{gt}", file=vcf)
     if filename != output:
         subprocess.run(["bgzip", "-f", filename])
         subprocess.run(["tabix", "-f", output])
-    
+
 
 def write_eigenstrat(output, sites, sample_name):
     with open(output + ".ind", "w") as ind, \
