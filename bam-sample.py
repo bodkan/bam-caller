@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import math
 import random
 import re
 import signal
 import subprocess
 import sys
+from collections import Counter
 
 import pysam
 import pandas as pd
@@ -20,7 +20,7 @@ def pileup(bam, ref):
     """
     pileups = []
     for col in bam.pileup():
-        bases = [b.upper() for b in col.get_query_sequences() if b.upper() in "ACGT"]
+        bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
         if bases:
             pileups.append((
                 col.reference_name,
@@ -28,7 +28,10 @@ def pileup(bam, ref):
                 ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
                 bases
             ))
-    return pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"])
+    pileups = pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"])
+    pileups["coverage"] = pileups.pileup.apply(lambda x: len(x))
+
+    return pileups
 
 
 def write_vcf(output, sites, sample_name):
@@ -60,18 +63,28 @@ def write_eigenstrat(output, sites, sample_name):
             print(f"{2 * int(i.ref == i.base)}", file=geno)
 
 
+def write_pileup(output, pileups):
+    with open(output, "w") as tsv:
+        for i in pileups.itertuples():
+            print(f"{i.chrom}\t{i.pos}\t{i.ref}\t{''.join(i.pileup)}", file=tsv)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
+    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"], required=True)
+    parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
+    parser.add_argument("--format", help="Output format", choices=["vcf", "eigenstrat", "pileup"], required=True)
     parser.add_argument("--output", help="Output filename or EIGENSTRAT prefix", required=True)
-    parser.add_argument("--format", help="Output format", choices=["VCF", "EIGENSTRAT", "pileup"], required=True)
-    parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT", required=True)
 
     args = parser.parse_args()
 
-    if args.format in ["VCF", "EIGENSTRAT"] and not args.sample_name:
-        parser.error(f"Sample name has to be specified when writing {args.format}")
+    if args.format in ["vcf", "eigenstrat"]:
+        if not args.sample_name:
+            parser.error(f"Sample name has to be specified when writing {args.format}")
+        if args.strategy == "consensus":
+            parser.error(f"Only random-calling strategy allowed for {args.format} output format")
+
 
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
@@ -81,11 +94,16 @@ if __name__ == "__main__":
         sys.exit(1)
 
     pileups = pileup(bam, ref)
-    pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
 
-    if args.format == "VCF":
-        write_vcf(args.output, pileups, args.sample_name)
-    elif args.format == "EIGENSTRAT":
+    if args.strategy == "random":
+        pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
+    elif args.strategy == "consensus":
+        base_counts = pileups.pileup.apply(lambda x: len(Counter(x)))
+        pileups = pileups[base_counts == 1]
+
+    if args.format == "eigenstrat":
         write_eigenstrat(args.output, pileups, args.sample_name)
+    elif args.format == "vcf":
+        write_vcf(args.output, pileups, args.sample_name)
     else:
-        print(pileups)
+        write_pileup(args.output, pileups)
