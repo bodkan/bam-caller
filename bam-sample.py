@@ -19,6 +19,7 @@ def pileup(bam, ref):
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     pileups = []
+    # i = 1
     for col in bam.pileup():
         bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
         if bases:
@@ -28,6 +29,8 @@ def pileup(bam, ref):
                 ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
                 bases
             ))
+        # i += 1
+        # if i > 1000: break
     pileups = pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"])
     pileups["coverage"] = pileups.pileup.apply(lambda x: len(x))
 
@@ -35,8 +38,7 @@ def pileup(bam, ref):
 
 
 def write_vcf(output, sites, sample_name):
-    filename = re.sub(".gz", "", output) if output.endswith(".gz") else output
-    with open(filename, "w") as vcf:
+    with open(output + ".vcf", "w") as vcf:
         print(
             "##fileformat=VCFv4.1\n"
             "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
@@ -46,11 +48,10 @@ def write_vcf(output, sites, sample_name):
         )
         for i in sites.itertuples():
             alt, gt = (".", 0) if i.ref == i.base else (i.base, 1)
-            print(f"{i.chrom}\t{i.pos}\t.\t{i.ref}\t{alt}\t.\t.\t.\tGT\t{gt}", file=vcf)
+            print(f"{i.chrom}\t{i.pos}\t.\t{i.ref}\t{alt}\t.\t.\t.\tGT:DP\t{gt}:{i.coverage}", file=vcf)
 
-    if filename != output:
-        subprocess.run(["bgzip", "-f", filename])
-        subprocess.run(["tabix", "-f", output])
+    subprocess.run(["bgzip", "-f", output + ".vcf"])
+    subprocess.run(["tabix", "-f", output + ".vcf.gz"])
 
 
 def write_eigenstrat(output, sites, sample_name):
@@ -64,7 +65,7 @@ def write_eigenstrat(output, sites, sample_name):
 
 
 def write_pileup(output, pileups):
-    with open(output, "w") as tsv:
+    with open(output + ".txt", "w") as tsv:
         for i in pileups.itertuples():
             print(f"{i.chrom}\t{i.pos}\t{i.ref}\t{''.join(i.pileup)}", file=tsv)
 
@@ -73,17 +74,15 @@ if __name__ == "__main__":
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"], required=True)
+    parser.add_argument("--coverage", help="Minimum coverage", type=int, default=0)
     parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
-    parser.add_argument("--format", help="Output format", choices=["vcf", "eigenstrat", "pileup"], required=True)
-    parser.add_argument("--output", help="Output filename or EIGENSTRAT prefix", required=True)
+    parser.add_argument("--format", help="Output formats", nargs="+", choices=["vcf", "eigenstrat", "pileup"], required=True)
+    parser.add_argument("--output", help="Output file prefix", required=True)
 
     args = parser.parse_args()
 
-    if args.format in ["vcf", "eigenstrat"]:
-        if not args.sample_name:
+    if args.format in ["vcf", "eigenstrat"] and not args.sample_name:
             parser.error(f"Sample name has to be specified when writing {args.format}")
-        if args.strategy == "consensus":
-            parser.error(f"Only random-calling strategy allowed for {args.format} output format")
 
 
     bam = pysam.AlignmentFile(args.bam)
@@ -93,17 +92,18 @@ if __name__ == "__main__":
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
 
-    pileups = pileup(bam, ref)
+    pileups = pileup(bam, ref).query(f"coverage >= {args.coverage}")
 
     if args.strategy == "random":
         pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
     elif args.strategy == "consensus":
         base_counts = pileups.pileup.apply(lambda x: len(Counter(x)))
         pileups = pileups[base_counts == 1]
+        pileups["base"] = pileups.pileup.apply(lambda x: x[0])
 
-    if args.format == "eigenstrat":
+    if "eigenstrat" in args.format:
         write_eigenstrat(args.output, pileups, args.sample_name)
-    elif args.format == "vcf":
+    if "vcf" in args.format:
         write_vcf(args.output, pileups, args.sample_name)
-    else:
+    if "pileup" in args.format:
         write_pileup(args.output, pileups)
