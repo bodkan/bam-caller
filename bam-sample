@@ -70,7 +70,7 @@ if __name__ == "__main__":
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"], required=True)
-    parser.add_argument("--coverage", help="Minimum coverage", type=int, default=0)
+    parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
     parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
     parser.add_argument("--format", help="Output formats", nargs="+", choices=["vcf", "eigenstrat", "pileup"], required=True)
     parser.add_argument("--output", help="Output file prefix", required=True)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
 
-    pileups = pileup(bam, ref).query(f"coverage >= {args.coverage}")
+    pileups = pileup(bam, ref).query(f"coverage >= {args.mincov}")
 
     if args.strategy == "random":
         pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
