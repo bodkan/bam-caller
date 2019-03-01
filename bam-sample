@@ -30,7 +30,7 @@ def pileup(bam, ref, minbq, minmq):
             ))
         if i % 50000 == 0: print(f"\r{i + 1} positions processed", end="")
     print()
-    pileups = pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"])
+    pileups = pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"]).query('ref != "N"')
     pileups["coverage"] = pileups.pileup.apply(lambda x: len(x))
 
     return pileups
