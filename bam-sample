@@ -14,12 +14,12 @@ import pandas as pd
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def pileup(bam, ref):
+def pileup(bam, ref, minbq, minmq):
     """Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     pileups = []
-    for i, col in enumerate(bam.pileup()):
+    for i, col in enumerate(bam.pileup(min_base_quality=minbq, min_mapping_quality=minmq)):
         bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
         if bases:
             pileups.append((
@@ -71,6 +71,8 @@ if __name__ == "__main__":
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"], required=True)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
+    parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
+    parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
     parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
     parser.add_argument("--format", help="Output formats", nargs="+", choices=["vcf", "eigenstrat", "pileup"], required=True)
     parser.add_argument("--output", help="Output file prefix", required=True)
@@ -88,7 +90,7 @@ if __name__ == "__main__":
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
 
-    pileups = pileup(bam, ref).query(f"coverage >= {args.mincov}")
+    pileups = pileup(bam, ref, args.minbq, args.minmq).query(f"coverage >= {args.mincov}")
 
     if args.strategy == "random":
         pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
