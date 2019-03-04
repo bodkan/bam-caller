@@ -19,7 +19,7 @@ def pileup(bam, ref, minbq, minmq):
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     pileups = []
-    for i, col in enumerate(bam.pileup(min_base_quality=minbq, min_mapping_quality=minmq)):
+    for i, col in enumerate(bam.pileup(compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
         bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
         if bases:
             pileups.append((
