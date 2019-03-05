@@ -2,9 +2,7 @@
 
 import argparse
 import random
-import re
 import signal
-import subprocess
 import sys
 from collections import Counter
 
@@ -20,8 +18,10 @@ def pileup(bam, ref, minbq, minmq):
     """
     pileups = []
     for i, col in enumerate(bam.pileup(compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
-        bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
-        if bases:
+        bases = col.get_query_sequences(add_indels=True)
+        # filter out sites with no reads and sites with indels or close to indels
+        if bases and "*" not in bases and all(len(i) == 1 for i in bases):
+            bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
             pileups.append((
                 col.reference_name,
                 col.reference_pos + 1,
