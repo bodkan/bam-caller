@@ -62,14 +62,18 @@ def write_eigenstrat(output, sites, sample_name):
 
 def write_pileup(output, pileups):
     with open(output + ".txt", "w") as tsv:
+        print("chrom\tpos\tref\tpileup\tA\tC\tG\tT", file=tsv)
         for i in pileups.itertuples():
-            print(f"{i.chrom}\t{i.pos}\t{i.ref}\t{''.join(i.pileup)}", file=tsv)
+            counts = Counter(i.pileup)
+            counts_str = '\t'.join(str(counts[i]) for i in 'ACGT')
+            print(f"{i.chrom}\t{i.pos}\t{i.ref}\t{''.join(i.pileup)}\t{counts_str}", file=tsv)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
-    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"], required=True)
+    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"])
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
@@ -82,6 +86,8 @@ if __name__ == "__main__":
     if args.format in ["vcf", "eigenstrat"] and not args.sample_name:
             parser.error(f"Sample name has to be specified when writing {args.format}")
 
+    if args.format in ["vcf", "eigenstrat"] and not args.strategy:
+            parser.error(f"Sampling strategy has to be specified when writing {args.format}")
 
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
@@ -91,6 +97,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     pileups = pileup(bam, ref, args.minbq, args.minmq).query(f"coverage >= {args.mincov}")
+
+    if "pileup" in args.format:
+        write_pileup(args.output, pileups)
 
     if args.strategy == "random":
         pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
@@ -103,5 +112,3 @@ if __name__ == "__main__":
         write_eigenstrat(args.output, pileups, args.sample_name)
     if "vcf" in args.format:
         write_vcf(args.output, pileups, args.sample_name)
-    if "pileup" in args.format:
-        write_pileup(args.output, pileups)
