@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
 import random
 import signal
 import sys
@@ -11,6 +12,11 @@ import pandas as pd
 
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
+
+def tolerance(i, tol):
+    """Calculate the number of alleles required to agree at a site
+    for a consensus to pass."""
+    return i - math.trunc((i - 1) * tol)
 
 def pileup(bam, ref, minbq, minmq):
     """Sample bases in a given region of the genome based on the pileup
@@ -74,6 +80,7 @@ if __name__ == "__main__":
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"])
+    parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
@@ -104,9 +111,10 @@ if __name__ == "__main__":
     if args.strategy == "random":
         pileups["base"] = pileups["pileup"].apply(lambda x: random.choice(x))
     elif args.strategy == "consensus":
-        base_counts = pileups.pileup.apply(lambda x: len(Counter(x)))
-        pileups = pileups[base_counts == 1]
-        pileups["base"] = pileups.pileup.apply(lambda x: x[0])
+        pileups["base"] = pileups.pileup.apply(lambda x: Counter(x).most_common()[0][0])
+        pileups["count"] = pileups.pileup.apply(lambda x: Counter(x).most_common()[0][1])
+        pileups["tolerance"] = pileups.coverage.apply(tolerance, args = (args.tolerance, ))
+        pileups = pileups[pileups["count"] >= pileups["tolerance"]].drop(["count", "tolerance"], axis=1)
 
     if "eigenstrat" in args.format:
         write_eigenstrat(args.output, pileups, args.sample_name)
