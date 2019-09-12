@@ -18,12 +18,12 @@ def tolerance(i, tol):
     for a consensus to pass."""
     return i - math.trunc((i - 1) * tol)
 
-def pileup(bam, ref, minbq, minmq):
+def pileup(bam, ref, minbq, minmq, chrom):
     """Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     pileups = []
-    for i, col in enumerate(bam.pileup(compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
+    for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
         bases = col.get_query_sequences(add_indels=True)
         # filter out sites with no reads and sites with indels or close to indels
         if bases and "*" not in bases and all(len(i) == 1 for i in bases):
@@ -34,7 +34,7 @@ def pileup(bam, ref, minbq, minmq):
                 ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
                 bases
             ))
-        if i % 50000 == 0: print(f"\r{i + 1} positions processed", end="")
+        if i % 1000000 == 0: print(f"\r{i + 1} positions processed", end="")
     print()
     pileups = pd.DataFrame(pileups, columns=["chrom", "pos", "ref", "pileup"]).query('ref != "N"')
     pileups["coverage"] = pileups.pileup.apply(lambda x: len(x))
@@ -79,6 +79,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--ref", help="FASTA reference sequence", required=True)
+    parser.add_argument("--chrom", help="Chromosome to sample from")
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus"])
     parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
 
-    pileups = pileup(bam, ref, args.minbq, args.minmq).query(f"coverage >= {args.mincov}")
+    pileups = pileup(bam, ref, args.minbq, args.minmq, args.chrom).query(f"coverage >= {args.mincov}")
 
     if "pileup" in args.format:
         write_pileup(args.output, pileups)
