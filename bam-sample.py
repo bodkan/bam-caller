@@ -33,6 +33,7 @@ def consensus(bases, tol):
 
 
 def flush(i, calls, out_fun):
+    """Save genotype calls to a file (either a VCF or a pileup TSV)."""
     print(f"\r{i + 1} positions processed", end="")
     calls = pd.DataFrame(
         calls, columns=["chrom", "pos", "ref", "coverage", "call"]
@@ -40,11 +41,6 @@ def flush(i, calls, out_fun):
     out_fun(calls)
 
 
-# This function is much slower than the previous approach by simply
-# fetching a REF base from a FASTA reference, but it doesn't have
-# a problem with many parallel processes fetching a base from the
-# same reference genome. So I'll be using this until a more efficient
-# pysam solution comes up.
 def get_ref_base(col):
     tuples = col.pileups[0].alignment.get_aligned_pairs(with_seq=True)
     for read_pos, ref_pos, ref_base in tuples:
