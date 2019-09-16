@@ -12,8 +12,6 @@ from collections import Counter
 import pysam
 import pandas as pd
 
-from ipdb import set_trace
-
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
@@ -36,48 +34,18 @@ def consensus(bases, tol):
 
 def flush(i, calls, out_fun):
     print(f"\r{i + 1} positions processed", end="")
-    calls = pd.DataFrame(calls, columns=["chrom", "pos", "ref", "coverage", "call"]).query('ref != "N" & call != "N"')
+    calls = pd.DataFrame(
+        calls, columns=["chrom", "pos", "ref", "coverage", "call"]
+    ).query('ref != "N" & call != "N"')
     out_fun(calls)
 
 
 def get_ref_base(col):
-#    ref_bases = []
-#    if col.reference_pos in [13463538]: set_trace()
     for pread in col.pileups:
         tuples = pread.alignment.get_aligned_pairs(with_seq=True)
         for read_pos, ref_pos, ref_base in tuples:
             if ref_pos == col.reference_pos:
                 return ref_base.upper()
-
-                #ref_bases.append(ref_base.upper())
-    # if len(ref_bases):
-    #     from collections import Counter
-    #     assert len(Counter(ref_bases)) == 1
-    #     return ref_bases[0]
-
-
-# def get_ref_base(col):
-#     ref_bases = []
-#     if col.reference_pos in [7597752]: set_trace()
-#     for pread in col.pileups:
-#         if not pread.is_del and not pread.is_refskip:
-#             tuples = pread.alignment.get_aligned_pairs(matches_only=True, with_seq=True)
-#             ref_bases.append(tuples[pread.query_position][2].upper())
-#     from collections import Counter
-#     assert len(Counter(ref_bases)) == 1
-#     return ref_bases[0]
-
-
-# def get_ref_base(col):
-#     ref_bases = []
-#     if col.reference_pos == [6932114, 6932115]: set_trace()
-#     for pread in col.pileups:
-#         if not pread.is_del and not pread.is_refskip:
-#             read_ref = pread.alignment.get_reference_sequence()
-#             ref_bases.append(read_ref[pread.query_position].upper())
-#     from collections import Counter
-#     #if len(Counter(ref_bases)) != 1: set_trace()
-#     return ref_bases
 
 
 def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
@@ -85,24 +53,23 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     calls = []
-    for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
+    for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False,
+                                       min_base_quality=minbq,
+                                       min_mapping_quality=minmq)):
         bases = col.get_query_sequences(add_indels=True)
- 
-        # filter out sites with no reads and sites with indels or close to indels
+
+        # filter out sites with no reads and sites with indels
         if bases and "*" not in bases and all(len(i) == 1 for i in bases):
-            bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
-            if len(bases) < mincov: continue
-
-            if ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1) != get_ref_base(col):
-                set_trace()
-
-            calls.append((
-                col.reference_name,
-                col.reference_pos + 1,
-                get_ref_base(col),
-                len(bases),
-                call_fun(bases)
-            ))
+            bases = [b.upper() for b in col.get_query_sequences()
+                     if b and b.upper() in "ACGT"]
+            if len(bases) >= mincov:
+                calls.append((
+                    col.reference_name,
+                    col.reference_pos + 1,
+                    get_ref_base(col),
+                    len(bases),
+                    call_fun(bases)
+                ))
 
         if i % 10000000 == 0:
             flush(i, calls, out_fun)
@@ -158,9 +125,9 @@ if __name__ == "__main__":
         parser.error(f"Sample name has to be specified when writing a VCF file")
 
     bam = pysam.AlignmentFile(args.bam)
-    ref = pysam.FastaFile("/mnt/solexa/Genomes/hg19_evan/whole_genome.fa")
+
     if not bam.has_index():
-        print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
+        print("BAM file index is missing", file=sys.stderr)
         sys.exit(1)
 
     if args.strategy == "pileup":
@@ -168,9 +135,12 @@ if __name__ == "__main__":
         out_fun = functools.partial(write_pileup, output=args.output)
     elif args.strategy == "random":
         call_fun = lambda x: random.choice(x)
-        out_fun = functools.partial(write_vcf, output=args.output, sample_name=args.sample_name)
+        out_fun = functools.partial(write_vcf, output=args.output,
+                                    sample_name=args.sample_name)
     elif args.strategy == "consensus":
         call_fun = functools.partial(consensus, tol=args.tolerance)
-        out_fun = functools.partial(write_vcf, output=args.output, sample_name=args.sample_name)
+        out_fun = functools.partial(write_vcf, output=args.output,
+                                    sample_name=args.sample_name)
 
-    call_bases(call_fun, out_fun, bam, args.mincov, args.minbq, args.minmq, args.chrom)
+    call_bases(call_fun, out_fun, bam, args.mincov,
+               args.minbq, args.minmq, args.chrom)
