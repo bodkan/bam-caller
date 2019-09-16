@@ -71,7 +71,7 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
                     call_fun(bases)
                 ))
 
-        if i % 10000000 == 0:
+        if i % 1000000 == 0:
             flush(i, calls, out_fun)
             calls = []
 
