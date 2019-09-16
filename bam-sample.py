@@ -46,11 +46,10 @@ def flush(i, calls, out_fun):
 # same reference genome. So I'll be using this until a more efficient
 # pysam solution comes up.
 def get_ref_base(col):
-    for pread in col.pileups:
-        tuples = pread.alignment.get_aligned_pairs(with_seq=True)
-        for read_pos, ref_pos, ref_base in tuples:
-            if ref_pos == col.reference_pos:
-                return ref_base.upper()
+    tuples = col.pileups[0].alignment.get_aligned_pairs(with_seq=True)
+    for read_pos, ref_pos, ref_base in tuples:
+        if ref_pos == col.reference_pos:
+            return ref_base.upper()
 
 
 def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
