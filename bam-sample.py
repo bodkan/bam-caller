@@ -40,6 +40,11 @@ def flush(i, calls, out_fun):
     out_fun(calls)
 
 
+# This function is much slower than the previous approach by simply
+# fetching a REF base from a FASTA reference, but it doesn't have
+# a problem with many parallel processes fetching a base from the
+# same reference genome. So I'll be using this until a more efficient
+# pysam solution comes up.
 def get_ref_base(col):
     for pread in col.pileups:
         tuples = pread.alignment.get_aligned_pairs(with_seq=True)
