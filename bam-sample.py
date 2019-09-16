@@ -119,7 +119,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", help="Output file prefix")
 
     args = parser.parse_args()
-    #args = parser.parse_args("--bam ../ychr/data/bam/exome_den4.bam --chrom Y --strategy pileup --minbq 20 --minbq 25 --sample-name den4 --output test_output".split())
 
     if args.strategy != "pileup" and not args.sample_name:
         parser.error(f"Sample name has to be specified when writing a VCF file")
