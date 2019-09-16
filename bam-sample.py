@@ -12,6 +12,8 @@ from collections import Counter
 import pysam
 import pandas as pd
 
+from ipdb import set_trace
+
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
@@ -38,23 +40,66 @@ def flush(i, calls, out_fun):
     out_fun(calls)
 
 
-def call_bases(call_fun, out_fun, bam, ref, mincov, minbq, minmq, chrom):
-    """Sample bases in a given region of the genome based on the pileup
+def get_ref_base(col):
+#    ref_bases = []
+#    if col.reference_pos in [13463538]: set_trace()
+    for pread in col.pileups:
+        tuples = pread.alignment.get_aligned_pairs(with_seq=True)
+        for read_pos, ref_pos, ref_base in tuples:
+            if ref_pos == col.reference_pos:
+                return ref_base.upper()
+
+                #ref_bases.append(ref_base.upper())
+    # if len(ref_bases):
+    #     from collections import Counter
+    #     assert len(Counter(ref_bases)) == 1
+    #     return ref_bases[0]
+
+
+# def get_ref_base(col):
+#     ref_bases = []
+#     if col.reference_pos in [7597752]: set_trace()
+#     for pread in col.pileups:
+#         if not pread.is_del and not pread.is_refskip:
+#             tuples = pread.alignment.get_aligned_pairs(matches_only=True, with_seq=True)
+#             ref_bases.append(tuples[pread.query_position][2].upper())
+#     from collections import Counter
+#     assert len(Counter(ref_bases)) == 1
+#     return ref_bases[0]
+
+
+# def get_ref_base(col):
+#     ref_bases = []
+#     if col.reference_pos == [6932114, 6932115]: set_trace()
+#     for pread in col.pileups:
+#         if not pread.is_del and not pread.is_refskip:
+#             read_ref = pread.alignment.get_reference_sequence()
+#             ref_bases.append(read_ref[pread.query_position].upper())
+#     from collections import Counter
+#     #if len(Counter(ref_bases)) != 1: set_trace()
+#     return ref_bases
+
+
+def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
+    """Sample bases in a given region of the genome based on the pileupx
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     calls = []
     for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False, min_base_quality=minbq, min_mapping_quality=minmq)):
         bases = col.get_query_sequences(add_indels=True)
-
+ 
         # filter out sites with no reads and sites with indels or close to indels
         if bases and "*" not in bases and all(len(i) == 1 for i in bases):
             bases = [b.upper() for b in col.get_query_sequences() if b and b.upper() in "ACGT"]
             if len(bases) < mincov: continue
 
+            if ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1) != get_ref_base(col):
+                set_trace()
+
             calls.append((
                 col.reference_name,
                 col.reference_pos + 1,
-                ref.fetch(col.reference_name, col.reference_pos, col.reference_pos + 1),
+                get_ref_base(col),
                 len(bases),
                 call_fun(bases)
             ))
@@ -97,7 +142,6 @@ def write_pileup(pileups, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
-    parser.add_argument("--ref", help="FASTA reference sequence", required=True)
     parser.add_argument("--chrom", help="Chromosome to sample from")
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "pileup"], required=True)
     parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
@@ -108,14 +152,13 @@ if __name__ == "__main__":
     parser.add_argument("--output", help="Output file prefix")
 
     args = parser.parse_args()
-    # args = parser.parse_args("--bam ../ychr/data/bam/exome_den4.bam --ref /mnt/solexa/Genomes/hg19_evan/whole_genome.fa --chrom Y --strategy pileup --minbq 20 --minbq 25 --sample-name den4 --output test_output".split())
+    #args = parser.parse_args("--bam ../ychr/data/bam/exome_den4.bam --chrom Y --strategy pileup --minbq 20 --minbq 25 --sample-name den4 --output test_output".split())
 
     if args.strategy != "pileup" and not args.sample_name:
         parser.error(f"Sample name has to be specified when writing a VCF file")
 
     bam = pysam.AlignmentFile(args.bam)
-    ref = pysam.FastaFile(args.ref)
-
+    ref = pysam.FastaFile("/mnt/solexa/Genomes/hg19_evan/whole_genome.fa")
     if not bam.has_index():
         print("An indexed BAM file is required, please run 'samtools index' first", file=sys.stderr)
         sys.exit(1)
@@ -130,4 +173,4 @@ if __name__ == "__main__":
         call_fun = functools.partial(consensus, tol=args.tolerance)
         out_fun = functools.partial(write_vcf, output=args.output, sample_name=args.sample_name)
 
-    call_bases(call_fun, out_fun, bam, ref, args.mincov, args.minbq, args.minmq, args.chrom)
+    call_bases(call_fun, out_fun, bam, args.mincov, args.minbq, args.minmq, args.chrom)
