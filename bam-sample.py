@@ -37,7 +37,7 @@ def flush(i, calls, out_fun):
     print(f"\r{i + 1} positions processed", end="")
     calls = pd.DataFrame(
         calls, columns=["chrom", "pos", "ref", "coverage", "call"]
-    ).query('ref != "N" & call != "N"')
+    )
     out_fun(calls)
 
 
