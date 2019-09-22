@@ -112,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--chrom", help="Chromosome to sample from")
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "pileup"], required=True)
     parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
-    parser.add_argument("--mincov", help="Minimum coverage", type=int, default=0)
+    parser.add_argument("--mincov", help="Minimum coverage", type=int, default=1)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
     parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
