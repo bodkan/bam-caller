@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=1)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
-    parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
+    parser.add_argument("--sample-name", help="Sample name to put in a VCF header")
     parser.add_argument("--output", help="Output file prefix")
 
     args = parser.parse_args()
