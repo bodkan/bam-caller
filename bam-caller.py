@@ -115,7 +115,7 @@ def write_pileup(pileups, output):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
+    parser = argparse.ArgumentParser(description="Call alleles from a given BAM file using various criteria")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--chrom", help="Chromosome to sample from")
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "majority", "pileup"], required=True)
