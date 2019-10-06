@@ -53,6 +53,7 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     calls = []
+    i = 0
     for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False,
                                        min_base_quality=minbq,
                                        min_mapping_quality=minmq)):
@@ -70,11 +71,9 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
                     len(bases),
                     call_fun(bases)
                 ))
-
         if i % 1000000 == 0:
             flush(i, calls, out_fun)
             calls = []
-
     flush(i, calls, out_fun)
 
 
