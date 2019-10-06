@@ -31,6 +31,13 @@ def consensus(bases, tol):
     else:
         return "N"
 
+def majority(bases):
+    """Select the most common allele. Handling cases of multiple
+    alleles of the same proportion relies on the fact that the
+    method `most_common()` returns such elements in an arbitrary
+    order.
+    """
+    return Counter(bases).most_common()[0][0]
 
 def flush(i, calls, out_fun):
     """Save genotype calls to a file (either a VCF or a pileup TSV)."""
@@ -63,6 +70,7 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
         if bases and "*" not in bases and all(len(i) == 1 for i in bases):
             bases = [b.upper() for b in col.get_query_sequences()
                      if b and b.upper() in "ACGT"]
+
             if len(bases) >= mincov:
                 calls.append((
                     col.reference_name,
@@ -106,16 +114,16 @@ def write_pileup(pileups, output):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sample random alleles from a given BAM file")
+    parser = argparse.ArgumentParser(description="Call alleles from a given BAM file using various criteria")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--chrom", help="Chromosome to sample from")
-    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "pileup"], required=True)
+    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "majority", "pileup"], required=True)
     parser.add_argument("--seed", help="Set seed for initiating the random number generator for random allele calling [random]", default=None)
     parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=1)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
-    parser.add_argument("--sample-name", help="Sample name to put in VCF/EIGENSTRAT")
+    parser.add_argument("--sample-name", help="Sample name to put in a VCF header")
     parser.add_argument("--output", help="Output file prefix")
 
     args = parser.parse_args()
@@ -140,6 +148,10 @@ if __name__ == "__main__":
                                     sample_name=args.sample_name)
     elif args.strategy == "consensus":
         call_fun = functools.partial(consensus, tol=args.tolerance)
+        out_fun = functools.partial(write_vcf, output=args.output,
+                                    sample_name=args.sample_name)
+    elif args.strategy == "majority":
+        call_fun = majority
         out_fun = functools.partial(write_vcf, output=args.output,
                                     sample_name=args.sample_name)
 
