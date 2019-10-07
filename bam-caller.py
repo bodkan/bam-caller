@@ -60,6 +60,7 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
     of reads. If no coordinates were specified, sample from the whole BAM file.
     """
     calls = []
+    i = 0
     for i, col in enumerate(bam.pileup(contig=chrom, compute_baq=False,
                                        min_base_quality=minbq,
                                        min_mapping_quality=minmq)):
@@ -78,11 +79,9 @@ def call_bases(call_fun, out_fun, bam, mincov, minbq, minmq, chrom):
                     len(bases),
                     call_fun(bases)
                 ))
-
         if i % 1000000 == 0:
             flush(i, calls, out_fun)
             calls = []
-
     flush(i, calls, out_fun)
 
 
@@ -119,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--chrom", help="Chromosome to sample from")
     parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "majority", "pileup"], required=True)
+    parser.add_argument("--seed", help="Set seed for initiating the random number generator for random allele calling [random]", default=None)
     parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=1)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
@@ -141,6 +141,8 @@ if __name__ == "__main__":
         call_fun = lambda x: "".join(x)
         out_fun = functools.partial(write_pileup, output=args.output)
     elif args.strategy == "random":
+        if not args.seed is None:
+            random.seed(a=args.seed)
         call_fun = lambda x: random.choice(x)
         out_fun = functools.partial(write_vcf, output=args.output,
                                     sample_name=args.sample_name)
