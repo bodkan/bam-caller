@@ -15,30 +15,23 @@ import pandas as pd
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def tolerance(i, tol):
-    """Calculate the number of alleles required to agree at a site
-    for a consensus to pass."""
-    return i - math.trunc((i - 1) * tol)
+def majority(bases, prop):
+    """Select the most frequent allele, requiring at least `prop` of all
+    reads to agree on it.
 
-
-def consensus(bases, tol):
-    """Call consensus on piled-up bases."""
+    Cases with two alleles at the same proportion are handled by
+    implicit behaviour of the `most_common()` method, which assigns
+    the order of frequency arbitrarily.
+    """
     counts = Counter(bases).most_common()
-    base = counts[0][0]
-    count = counts[0][1]
-    if count >= tolerance(len(bases), tol):
-        return base
+    allele, n =  counts[0]
+
+    # return the most frequent allele in case there are at most two
+    # alleles present at a site
+    if n / len(bases) >= prop and len(counts) <= 2:
+        return allele
     else:
         return "N"
-
-
-def majority(bases):
-    """Select the most common allele. Handling cases of multiple
-    alleles of the same proportion relies on the fact that the
-    method `most_common()` returns such elements in an arbitrary
-    order.
-    """
-    return Counter(bases).most_common()[0][0]
 
 
 def flush(i, calls, out_fun):
@@ -117,13 +110,25 @@ def write_pileup(pileups, output):
             print(f"{i.chrom}\t{i.pos}\t{i.ref}\t{''.join(i.call)}\t{counts_str}", file=tsv)
 
 
+def check_range(value):
+    """Make sure that the required proportion of reads in agreement on a
+    base is between 0.5 and 1.0.
+    """
+    value = float(value)
+    if value < 0.5 or value > 1.0:
+        raise argparse.ArgumentTypeError(
+            "Required proportion for majority calling "
+            f"needs to be between 0.5 and 1.0 (value given: {value}).")
+    return value
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Call alleles from a given BAM file using various criteria")
+    parser = argparse.ArgumentParser(description="Call alleles from a BAM file using various criteria")
     parser.add_argument("--bam", help="BAM file to sample from", required=True)
     parser.add_argument("--chrom", help="Chromosome to sample from")
-    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "consensus", "majority", "pileup"], required=True)
+    parser.add_argument("--strategy", help="How to 'genotype'?", choices=["random", "majority", "pileup"], required=True)
+    parser.add_argument("--proportion", help="Required proportion of the majority allele", type=check_range, default=0.5)
     parser.add_argument("--seed", help="Set seed for random allele sampling [random]")
-    parser.add_argument("--tolerance", help="What proportion of discordant alleles to allow for consensus?", type=float, default=0.0)
     parser.add_argument("--mincov", help="Minimum coverage", type=int, default=1)
     parser.add_argument("--minbq", help="Minimum base quality", type=int, default=13)
     parser.add_argument("--minmq", help="Minimum read mapping quality", type=int, default=0)
@@ -150,12 +155,8 @@ if __name__ == "__main__":
         call_fun = lambda x: random.choice(x)
         out_fun = functools.partial(write_vcf, output=args.output,
                                     sample_name=args.sample_name)
-    elif args.strategy == "consensus":
-        call_fun = functools.partial(consensus, tol=args.tolerance)
-        out_fun = functools.partial(write_vcf, output=args.output,
-                                    sample_name=args.sample_name)
     elif args.strategy == "majority":
-        call_fun = majority
+        call_fun = functools.partial(majority, prop=args.proportion)
         out_fun = functools.partial(write_vcf, output=args.output,
                                     sample_name=args.sample_name)
 
